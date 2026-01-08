@@ -1,0 +1,44 @@
+# ========================================
+# GitHub Actions Self-hosted Runner
+# ========================================
+# Uso:
+#   1. Gere o token no GitHub (Settings → Actions → Runners → New)
+#   2. Crie .env com RUNNER_TOKEN=seu_token
+#   3. docker compose up -d
+
+services:
+  github-runner:
+    image: myoung34/github-runner:latest
+    container_name: github-runner
+    restart: unless-stopped
+
+    environment:
+      RUNNER_SCOPE: "repo"
+      REPO_URL: "https://github.com/rpsouza441/chrono-letter"
+      RUNNER_NAME: "debian13-runner-01"
+
+      # Token de registro (Settings → Actions → Runners)
+      RUNNER_TOKEN: "${RUNNER_TOKEN}"
+
+      # Diretórios de trabalho
+      RUNNER_WORKDIR: "/tmp/runner/work"
+      CONFIGURED_ACTIONS_RUNNER_FILES_DIR: "/runner/data"
+
+      # Labels
+      LABELS: "debian13,docker,docker-sock"
+
+      # Opções importantes
+      DISABLE_AUTO_UPDATE: "true"
+      RUN_AS_ROOT: "true"
+      DISABLE_AUTOMATIC_DEREGISTRATION: "true" # Evita loop de re-registro
+
+    volumes:
+      # Acesso ao Docker do host
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Persistência do registro
+      - ./data:/runner/data
+      # Pasta de trabalho
+      - ./tmp:/tmp/runner
+
+    security_opt:
+      - label:disable

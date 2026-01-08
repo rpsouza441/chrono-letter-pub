@@ -1,0 +1,9 @@
+# ========================================
+# Master Key para Desenvolvimento
+# ========================================
+# 1. Copie este arquivo para: dev-master-key.txt
+# 2. (Opcional) Gere sua própria chave: openssl rand -base64 32
+# 3. O arquivo dev-master-key.txt está no .gitignore
+#
+# Chave exemplo (32 bytes em base64 = AES-256):
+dGhpcy1pcy1hLWRldi1rZXktZG8tbm90LXVzZS1pbi1wcm9k

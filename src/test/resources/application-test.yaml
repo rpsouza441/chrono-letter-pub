@@ -1,0 +1,67 @@
+# ========================================
+# Chrono Letter - TEST Profile
+# ========================================
+# Ativado automaticamente em testes com @ActiveProfiles("test")
+# Usa Testcontainers para PostgreSQL
+
+spring:
+  # ----------------------------------------
+  # Database (Testcontainers gerencia)
+  # ----------------------------------------
+  datasource:
+    # Testcontainers injeta via @ServiceConnection
+    hikari:
+      maximum-pool-size: 2
+
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+
+  # ----------------------------------------
+  # Email (desabilitado ou mock em testes)
+  # ----------------------------------------
+  mail:
+    host: localhost
+    port: 9999  # Porta inexistente - evita envios acidentais
+    properties:
+      mail:
+        smtp:
+          auth: false
+
+  # ----------------------------------------
+  # Security (simplificado para testes)
+  # ----------------------------------------
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: test-client-id
+            client-secret: test-client-secret
+
+# ========================================
+# Test-specific properties
+# ========================================
+chronoletter:
+  send-hour-local: 10
+  retry-deadline-days: 2
+  frontend-url: http://localhost:3000
+  
+  # Test: master key fixa para testes
+  master-key-path: classpath:test-master-key.txt
+  kek-version: 1
+  
+  mail:
+    from: test@chronoletter.app
+    from-name: Chrono Letter Test
+
+# ========================================
+# Logging (mínimo em testes)
+# ========================================
+logging:
+  level:
+    root: WARN
+    br.dev.rodrigopinheiro.chronoletter: INFO
+    org.testcontainers: INFO
+    org.springframework.test: WARN

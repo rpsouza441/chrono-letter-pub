@@ -1,0 +1,81 @@
+# ========================================
+# Chrono Letter - Docker Compose (Produção)
+# ========================================
+# Este arquivo deve ser copiado para o servidor:
+# /home/deploy-chrono/apps/chrono-letter/compose.prod.yaml
+#
+# Uso: docker compose -f compose.prod.yaml up -d
+
+name: chrono-letter
+
+services:
+  # ----------------------------------------
+  # Aplicação Spring Boot
+  # ----------------------------------------
+  app:
+    image: ghcr.io/rpsouza441/chrono-letter:latest
+    container_name: chrono-app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/chronoletter
+      - DATABASE_USERNAME=chrono
+      - DATABASE_PASSWORD=${DB_PASSWORD:-prodpass}
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
+      - MASTER_KEY_SECRET_PATH=/run/secrets/master_key
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:8080/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    networks:
+      - chrono-network
+
+  # ----------------------------------------
+  # PostgreSQL Database
+  # ----------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: chrono-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: chronoletter
+      POSTGRES_USER: chrono
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-prodpass}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U chrono -d chronoletter" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - chrono-network
+
+  # ----------------------------------------
+  # MailHog - Fake SMTP (dev/staging)
+  # ----------------------------------------
+  # Remover em produção real e usar SMTP verdadeiro
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: chrono-mailhog
+    restart: unless-stopped
+    ports:
+      - "8025:8025" # Web UI
+    networks:
+      - chrono-network
+
+volumes:
+  postgres_data:
+
+
+networks:
+  chrono-network:
+    driver: bridge

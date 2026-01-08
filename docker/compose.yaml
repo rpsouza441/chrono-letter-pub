@@ -1,0 +1,79 @@
+# ========================================
+# Chrono Letter - Docker Compose (Dev)
+# ========================================
+# Uso: docker compose -f docker/compose.yaml up -d
+# Ou:  cd docker && docker compose up -d
+
+name: chrono-letter-dev
+
+services:
+  # ----------------------------------------
+  # PostgreSQL Database
+  # ----------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: chrono-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: chronoletter_dev
+      POSTGRES_USER: chrono
+      POSTGRES_PASSWORD: devpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Init scripts (opcional)
+      # - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chrono -d chronoletter_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------
+  # MailHog - Fake SMTP Server
+  # ----------------------------------------
+  # Web UI: http://localhost:8025
+  # SMTP:   localhost:1025
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: chrono-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+    logging:
+      driver: none    # Silencia logs do MailHog
+
+  # ----------------------------------------
+  # pgAdmin (opcional - descomente se quiser)
+  # ----------------------------------------
+  # Web UI: http://localhost:5050
+  # Login: admin@chrono.dev / admin
+  # pgadmin:
+  #   image: dpage/pgadmin4:latest
+  #   container_name: chrono-pgadmin
+  #   restart: unless-stopped
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: admin@chrono.dev
+  #     PGADMIN_DEFAULT_PASSWORD: admin
+  #     PGADMIN_CONFIG_SERVER_MODE: "False"
+  #   ports:
+  #     - "5050:80"
+  #   volumes:
+  #     - pgadmin_data:/var/lib/pgadmin
+  #   depends_on:
+  #     - postgres
+
+volumes:
+  postgres_data:
+  # pgadmin_data:
+
+# ----------------------------------------
+# Comandos úteis:
+# ----------------------------------------
+# Subir:      docker compose -f docker/compose.yaml up -d
+# Parar:      docker compose -f docker/compose.yaml down
+# Logs:       docker compose -f docker/compose.yaml logs -f postgres
+# Reset DB:   docker compose -f docker/compose.yaml down -v
+# Shell DB:   docker exec -it chrono-postgres psql -U chrono -d chronoletter_dev

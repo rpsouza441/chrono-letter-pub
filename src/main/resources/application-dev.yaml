@@ -1,0 +1,65 @@
+# ========================================
+# Chrono Letter - DEV Profile
+# ========================================
+# Ativado por padrão ou com: --spring.profiles.active=dev
+
+spring:
+  # ----------------------------------------
+  # Database (local PostgreSQL or Docker)
+  # ----------------------------------------
+  datasource:
+    url: jdbc:postgresql://localhost:5432/chronoletter_dev
+    username: chrono
+    password: devpass
+    hikari:
+      maximum-pool-size: 5
+
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  # ----------------------------------------
+  # Email (MailHog / MailCatcher)
+  # ----------------------------------------
+  # MailHog UI: http://localhost:8025
+  mail:
+    host: localhost
+    port: 1025
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
+  # ----------------------------------------
+  # Security (OAuth pode ser desabilitado para testes locais)
+  # ----------------------------------------
+  # Para testar sem OAuth, usar Magic Link ou criar SecurityConfig de dev
+
+# ========================================
+# Dev-specific properties
+# ========================================
+chronoletter:
+  frontend-url: http://localhost:3000
+  
+  # Dev: usar master key fixa (NÃO usar em produção!)
+  master-key-path: ${MASTER_KEY_SECRET_PATH:classpath:dev-master-key.txt}
+
+# ========================================
+# Logging (mais verboso em dev)
+# ========================================
+logging:
+  level:
+    root: INFO
+    br.dev.rodrigopinheiro.chronoletter: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+  # Console output (não JSON em dev para facilitar leitura)
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %clr(%-5level) %clr([%15.15thread]){faint} %clr(%-40.40logger{39}){cyan} : %msg%n"

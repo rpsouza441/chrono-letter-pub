@@ -1,0 +1,53 @@
+# ========================================
+# Chrono Letter - .dockerignore
+# ========================================
+# Arquivos ignorados durante docker build
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Build artifacts (serão gerados no container)
+target/
+build/
+
+# Documentação
+docs/
+*.md
+!README.md
+
+# CI/CD
+.github/
+
+# Docker (evitar loop)
+docker/
+Dockerfile*
+.dockerignore
+
+# Ambiente e secrets
+.env
+.env.*
+secrets/
+
+# Logs
+*.log
+logs/
+
+# Testes locais
+test-results/
+coverage/
+
+# Maven wrapper (já está no .mvn)
+!.mvn/
+
+# OS
+.DS_Store
+Thumbs.db

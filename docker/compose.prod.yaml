@@ -13,7 +13,7 @@ services:
   # Aplicação Spring Boot
   # ----------------------------------------
   app:
-    image: ghcr.io/rpsouza441/chrono-letter:latest
+    image: ghcr.io/rpsouza441/chrono-letter:${IMAGE_TAG:-latest}
     container_name: chrono-app
     restart: unless-stopped
     ports:

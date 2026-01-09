@@ -1,137 +1,156 @@
-# Guia: CI/CD com GitHub Actions para Chrono Letter
+# Guia: CI/CD Seguro com GitHub Actions para Chrono Letter
 
-Este guia foi **testado e validado** passo a passo.
+Este guia cobre a configuração completa do pipeline CI/CD com **todas as práticas de segurança** aplicadas.
 
 ---
 
 ## Índice
 
 1. [Visão Geral](#1-visão-geral)
-2. [Arquivos Necessários](#2-arquivos-necessários)
-3. [Configurar Secrets no GitHub](#3-configurar-secrets-no-github)
-4. [Configurar Self-hosted Runner](#4-configurar-self-hosted-runner)
-5. [Primeiro Deploy](#5-primeiro-deploy)
-6. [Troubleshooting](#6-troubleshooting)
+2. [Pré-requisitos](#2-pré-requisitos)
+3. [Configurar SSH Deploy Key](#3-configurar-ssh-deploy-key)
+4. [Configurar Environment Production](#4-configurar-environment-production)
+5. [Configurar Self-hosted Runner](#5-configurar-self-hosted-runner)
+6. [Primeiro Deploy](#6-primeiro-deploy)
+7. [Troubleshooting](#7-troubleshooting)
 
 ---
 
 ## 1. Visão Geral
 
-### Arquitetura
+### Arquitetura Segura
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────────────────┐
-│  Seu PC         │     │  GitHub         │     │  Seu Servidor (Debian)      │
-│  (Windows)      │     │                 │     │                             │
-├─────────────────┤     ├─────────────────┤     ├─────────────────────────────┤
-│                 │     │                 │     │  ┌─────────────────────┐    │
-│ git push ───────┼────►│ Job: build      │     │  │ Self-hosted Runner  │    │
-│                 │     │ Job: docker     │     │  │ (container Docker)  │    │
-│                 │     │       │         │     │  │         │           │    │
-│                 │     │       ▼         │◄────┼──│ "Tem job pra mim?"  │    │
-│                 │     │ Job: deploy ────┼────►│  │         ▼           │    │
-│                 │     │                 │     │  │ Executa deploy      │    │
-│                 │     │ Job: sync-pub   │     │  └─────────────────────┘    │
-└─────────────────┘     └─────────────────┘     └─────────────────────────────┘
+┌─────────────────┐     ┌──────────────────────────────────────────────────┐
+│  Seu PC         │     │  GitHub                                          │
+│  (Windows)      │     │                                                  │
+├─────────────────┤     ├──────────────────────────────────────────────────┤
+│                 │     │                                                  │
+│ git push ───────┼────►│ Job: build      (ubuntu-24.04)                   │
+│                 │     │ Job: docker     (ubuntu-24.04) → GHCR            │
+│                 │     │ Job: deploy ────┼──► Self-hosted Runner          │
+│                 │     │ Job: sync-pub ──┼──► chrono-letter-pub (SSH)     │
+└─────────────────┘     └──────────────────────────────────────────────────┘
+                                                    │
+                                                    ▼
+                        ┌──────────────────────────────────────────────────┐
+                        │  Seu Servidor (Debian)                           │
+                        ├──────────────────────────────────────────────────┤
+                        │  Self-hosted Runner ───► docker compose up       │
+                        │  (usa GITHUB_TOKEN, não PAT)                     │
+                        └──────────────────────────────────────────────────┘
 ```
 
 ### Repositórios
 
-| Repo | Visibilidade | Função |
-|------|--------------|--------|
-| `chrono-letter` | Privado | Desenvolvimento + CI/CD |
-| `chrono-letter-pub` | Público | Portfólio (sync automático) |
+| Repo | Visibilidade | Secrets | Runner |
+|------|--------------|---------|--------|
+| `chrono-letter` | 🔒 Privado | `PUBLIC_REPO_SSH_KEY` | ✅ Self-hosted |
+| `chrono-letter-pub` | 🌍 Público | Nenhum | ❌ Nenhum |
 
-### Jobs do Pipeline
+### Medidas de Segurança Aplicadas
 
-| Job | Onde roda | O que faz |
-|-----|-----------|-----------|
-| `build` | GitHub | Compila e testa (Maven) |
-| `docker` | GitHub | Builda imagem e publica no GHCR |
-| `deploy` | **Seu servidor** | Faz pull e restart dos containers |
-| `sync-public` | GitHub | Copia código para repo público |
-
----
-
-## 2. Arquivos Necessários
-
-### Estrutura do projeto
-
-```
-chrono-letter/
-├── .github/
-│   └── workflows/
-│       └── ci-cd.yml        # Pipeline CI/CD
-├── docker/
-│   ├── Dockerfile           # Build da aplicação
-│   ├── compose.yaml         # Dev (PostgreSQL + MailHog)
-│   ├── compose.prod.yaml    # Prod (App + PostgreSQL + MailHog)
-│   └── compose.runner.yaml  # Self-hosted Runner
-├── .dockerignore
-├── src/
-└── pom.xml
-```
-
-### Arquivos no servidor
-
-```
-/home/SEU_USER/
-├── runner/
-│   ├── compose.yaml         # compose.runner.yaml
-│   └── .env                 # GITHUB_RUNNER_TOKEN
-└── apps/
-    └── chrono-letter/
-        └── compose.prod.yaml
-```
+| Medida | Descrição |
+|--------|-----------|
+| ✅ Permissions mínimas | `contents: read` global, elevação por job |
+| ✅ Actions pinadas por SHA | Proteção contra supply chain attacks |
+| ✅ SSH Deploy Key | Substitui PAT (acesso limitado ao repo público) |
+| ✅ docker/login-action | Gerenciamento seguro de credenciais |
+| ✅ ubuntu-24.04 | Versão fixa (reprodutibilidade) |
+| ✅ Environment production | Gate de aprovação para deploy |
+| ✅ Logout automático | Limpa credenciais após uso |
+| ✅ Sem tag latest | Deploy por SHA específico |
 
 ---
 
-## 3. Configurar Secrets no GitHub
+## 2. Pré-requisitos
 
-Vá em: **chrono-letter (privado) → Settings → Secrets and variables → Actions**
-
-### Secret necessário:
-
-| Nome | Valor | Descrição |
-|------|-------|-----------|
-| `PAT_TOKEN` | Token de acesso pessoal | Para sync com repo público |
-
-### Como criar o PAT_TOKEN:
-
-1. **GitHub → Settings (seu perfil) → Developer settings**
-2. **Personal access tokens → Tokens (classic)**
-3. **Generate new token (classic)**
-4. Configure:
-   - Nome: `chrono-letter-sync`
-   - Expiração: 90 dias
-   - Scopes: ✅ `repo` (marcar apenas este)
-5. **Generate token** → Copie
-6. Adicione como secret `PAT_TOKEN` no repo privado
+- [ ] Repositório `chrono-letter` privado criado
+- [ ] Repositório `chrono-letter-pub` público criado
+- [ ] Docker instalado no servidor
+- [ ] Acesso SSH ao servidor
 
 ---
 
-## 4. Configurar Self-hosted Runner
+## 3. Configurar SSH Deploy Key
 
-### 4.1 Por que Self-hosted?
+A SSH Deploy Key permite que o repo privado faça push para o público **sem usar PAT**.
 
-- Seu servidor está em rede local (sem IP público)
-- Não precisa abrir portas no firewall
-- O runner **puxa** jobs do GitHub (conexão de saída)
+### 3.1 Gerar o par de chaves
 
-### 4.2 Copiar compose.runner.yaml para o servidor
+No seu PC (PowerShell ou terminal):
+
+```powershell
+# Gerar chave Ed25519 (mais segura)
+ssh-keygen -t ed25519 -C "chrono-letter-sync" -f chrono-sync-key -N ""
+```
+
+Isso cria dois arquivos:
+- `chrono-sync-key` (chave **privada**)
+- `chrono-sync-key.pub` (chave **pública**)
+
+### 3.2 Adicionar chave PÚBLICA no repo público
+
+1. Vá em: `chrono-letter-pub` → **Settings** → **Deploy keys**
+2. Clique em **Add deploy key**
+3. Configure:
+   - Title: `chrono-letter-sync`
+   - Key: Cole o conteúdo de `chrono-sync-key.pub`
+   - ✅ **Allow write access** (marcar!)
+4. Clique em **Add key**
+
+### 3.3 Adicionar chave PRIVADA no repo privado
+
+1. Vá em: `chrono-letter` → **Settings** → **Secrets and variables** → **Actions**
+2. Clique em **New repository secret**
+3. Configure:
+   - Name: `PUBLIC_REPO_SSH_KEY`
+   - Secret: Cole o conteúdo de `chrono-sync-key` (a privada!)
+4. Clique em **Add secret**
+
+### 3.4 Limpar arquivos locais
+
+```powershell
+# Apagar as chaves do seu PC (já estão salvas no GitHub)
+Remove-Item chrono-sync-key, chrono-sync-key.pub
+```
+
+---
+
+## 4. Configurar Environment Production
+
+O Environment adiciona uma camada de aprovação antes do deploy.
+
+### 4.1 Criar o Environment
+
+1. Vá em: `chrono-letter` → **Settings** → **Environments**
+2. Clique em **New environment**
+3. Nome: `production`
+4. Clique em **Configure environment**
+
+### 4.2 Configurar proteções (opcional)
+
+| Opção | Recomendação |
+|-------|--------------|
+| Required reviewers | Adicione você mesmo (para aprovar deploys) |
+| Wait timer | 0 minutos |
+| Deployment branches | `main` only |
+
+> ⚠️ Se não quiser aprovação manual, deixe sem reviewers. O deploy será automático após os testes passarem.
+
+---
+
+## 5. Configurar Self-hosted Runner
+
+### 5.1 Criar pasta e compose no servidor
 
 ```bash
-# No servidor, criar pasta do runner
+# No servidor
 mkdir -p ~/runner
 cd ~/runner
 
-# Criar o compose.yaml (cole o conteúdo de docker/compose.runner.yaml)
-nano compose.yaml
-```
-
-Conteúdo do arquivo:
-
-```yaml
+# Criar compose.yaml
+cat > compose.yaml << 'EOF'
 name: github-runner
 
 services:
@@ -150,27 +169,27 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - runner_work:/tmp/runner/work
-      - ~/apps:/home/runner/apps  # Ajuste conforme seu usuário
     user: root
     security_opt:
       - label:disable
 
 volumes:
   runner_work:
+EOF
 ```
 
-> ⚠️ Ajuste `REPO_URL` e o volume `~/apps` conforme seu setup.
+> ⚠️ Substitua `SEU_USER` pelo seu username do GitHub.
 
-### 4.3 Gerar token de registro
+### 5.2 Gerar token de registro
 
-1. Vá em: **chrono-letter (privado) → Settings → Actions → Runners**
+1. Vá em: `chrono-letter` → **Settings** → **Actions** → **Runners**
 2. Clique em **New self-hosted runner**
 3. Escolha: **Linux**, **x64**
-4. Na seção "Configure", copie o **token** (começa com `A...`)
+4. Copie o **token** (começa com `A...`)
 
-> ⚠️ O token expira em 1 hora! Use logo após gerar.
+> ⚠️ O token expira em 1 hora!
 
-### 4.4 Criar .env e subir o runner
+### 5.3 Subir o runner
 
 ```bash
 cd ~/runner
@@ -178,96 +197,117 @@ cd ~/runner
 # Criar .env com o token
 echo "GITHUB_RUNNER_TOKEN=SEU_TOKEN_AQUI" > .env
 
-# Subir o runner
+# Subir
 docker compose up -d
 
-# Verificar logs
+# Verificar
 docker logs github-runner-chrono
 ```
 
-### 4.5 Verificar no GitHub
+### 5.4 Verificar no GitHub
 
-Vá em: **Settings → Actions → Runners**
+Vá em: **Settings** → **Actions** → **Runners**
 
-Deve aparecer:
-- **chrono-server** com status **Idle** (bolinha verde)
+Deve aparecer: **chrono-server** com status **Idle** ✅
 
 ---
 
-## 5. Primeiro Deploy
+## 6. Primeiro Deploy
 
-### 5.1 Copiar compose.prod.yaml para o servidor
+### 6.1 Preparar compose.prod.yaml no servidor
 
 ```bash
-mkdir -p ~/apps/chrono-letter
-cd ~/apps/chrono-letter
-nano compose.prod.yaml  # Cole o conteúdo de docker/compose.prod.yaml
+mkdir -p /srv/DATA/chrono-letter
+cd /srv/DATA/chrono-letter
+
+# Criar ou copiar o compose.prod.yaml
+nano compose.prod.yaml
 ```
 
-### 5.2 Fazer commit e push
+> ⚠️ O compose.prod.yaml precisa usar a variável `IMAGE_TAG`:
+> ```yaml
+> image: ghcr.io/rpsouza441/chrono-letter:${IMAGE_TAG:-latest}
+> ```
+
+### 6.2 Fazer push
 
 ```powershell
-# No Windows
 git add .
-git commit -m "feat: setup CI/CD pipeline"
+git commit -m "feat: secure CI/CD pipeline"
 git push origin main
 ```
 
-### 5.3 Acompanhar no GitHub
+### 6.3 Acompanhar
 
 Vá em: **Actions** → Veja o pipeline rodando
 
 Resultado esperado:
 - ✅ build: passou
 - ✅ docker: imagem publicada
-- ✅ deploy: containers atualizados
-- ✅ sync-public: código copiado para repo público
+- ⏳ deploy: aguardando aprovação (se configurou reviewers)
+- ✅ sync-public: código sincronizado
 
 ---
 
-## 6. Troubleshooting
+## 7. Troubleshooting
 
-### Runner não aparece no GitHub
+### Sync falha com "Permission denied (publickey)"
 
 ```bash
-# Ver logs do container
+# Verificar se a deploy key foi adicionada corretamente
+# A chave PÚBLICA deve estar no chrono-letter-pub
+# A chave PRIVADA deve estar no secret PUBLIC_REPO_SSH_KEY
+```
+
+### Deploy falha com "unauthorized"
+
+O deploy agora usa `GITHUB_TOKEN` (não PAT). Verifique:
+1. O package GHCR está vinculado ao repositório?
+2. O workflow tem `permissions: packages: read`?
+
+### Runner não aparece
+
+```bash
 docker logs github-runner-chrono
 
-# Erros comuns:
-# - Token expirado: gere um novo
-# - Rede: verifique se consegue acessar github.com
+# Se token expirado, gere um novo e:
+docker compose down
+echo "GITHUB_RUNNER_TOKEN=NOVO_TOKEN" > .env
+docker compose up -d
 ```
 
-### Deploy falha com "permission denied"
+### --force-with-lease falha
+
+Isso acontece se o histórico do repo público divergiu. Solução:
 
 ```bash
-# O runner precisa de acesso ao docker.sock
-# Verificar se o volume está correto:
-docker exec github-runner-chrono ls -la /var/run/docker.sock
+# No chrono-letter-pub, faça reset:
+git fetch origin
+git reset --hard origin/main
 ```
-
-### Sync falha com "authentication failed"
-
-- Verifique se o `PAT_TOKEN` está correto
-- Verifique se o token tem scope `repo`
-- Verifique se o repo público existe
-
-### Imagem não é encontrada no GHCR
-
-- Primeira vez demora alguns minutos
-- Verifique se o repo está **privado** (pacotes privados por padrão)
-- Vá em: **Packages** no GitHub e torne público se necessário
 
 ---
 
 ## Checklist Final
 
-- [ ] PAT_TOKEN criado e adicionado como secret
-- [ ] compose.runner.yaml no servidor
-- [ ] Token de registro do runner gerado
-- [ ] Runner rodando (`docker compose up -d`)
-- [ ] Runner aparece como "Idle" no GitHub
-- [ ] compose.prod.yaml no servidor
-- [ ] Primeiro push feito
-- [ ] Pipeline passou
-- [ ] App rodando (`docker ps`)
+### Secrets Configurados
+
+- [ ] `PUBLIC_REPO_SSH_KEY` (chave privada SSH)
+
+### GitHub Settings
+
+- [ ] Deploy Key no `chrono-letter-pub` (chave pública, write access)
+- [ ] Environment `production` criado
+- [ ] Runner self-hosted aparece como "Idle"
+
+### Servidor
+
+- [ ] Runner rodando (`docker ps | grep runner`)
+- [ ] compose.prod.yaml em `/srv/DATA/chrono-letter/`
+- [ ] compose.prod.yaml usa `${IMAGE_TAG}`
+
+### Teste
+
+- [ ] Push para main dispara pipeline
+- [ ] Todos os jobs passam
+- [ ] App rodando no servidor

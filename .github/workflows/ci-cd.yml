@@ -1,8 +1,8 @@
 # ========================================
 # Chrono Letter - CI/CD Pipeline
 # ========================================
-# Dispara em push/PR para main
-# Build → Test → Docker → Deploy
+# Pipeline seguro com todas as best practices aplicadas
+# Build → Test → Docker → Deploy → Sync
 
 name: CI/CD Pipeline
 
@@ -11,6 +11,10 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+
+# Permissão padrão mínima para todos os jobs
+permissions:
+  contents: read
 
 env:
   REGISTRY: ghcr.io
@@ -22,14 +26,14 @@ jobs:
   # ================================
   build:
     name: Build & Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     
     steps:
       - name: Checkout código
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.5.0
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -39,7 +43,7 @@ jobs:
         run: ./mvnw verify -B
 
       - name: Upload relatório de testes
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.5.0
         if: always()
         with:
           name: test-results
@@ -51,7 +55,7 @@ jobs:
   # ================================
   docker:
     name: Build Docker Image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
@@ -60,14 +64,15 @@ jobs:
       packages: write
 
     outputs:
-      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tag: ${{ steps.meta.outputs.version }}
 
     steps:
       - name: Checkout código
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Login no GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -75,15 +80,15 @@ jobs:
 
       - name: Extrair metadata para Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5.7.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=sha,prefix=
-            type=raw,value=latest
+            type=sha,format=long,prefix=
 
       - name: Build e Push imagem
-        uses: docker/build-push-action@v5
+        id: build
+        uses: docker/build-push-action@1dc73863535b631f98b2378be8619f83b136f4a0 # v6.10.0
         with:
           context: .
           file: ./docker/Dockerfile
@@ -96,43 +101,74 @@ jobs:
   # ================================
   deploy:
     name: Deploy to Server
-    runs-on: self-hosted    
+    runs-on: self-hosted
     needs: docker
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
+    # Environment com proteções (configure no GitHub)
+    environment: production
+
+    permissions:
+      contents: read
+      packages: read
+
+    env:
+      IMAGE_TAG: ${{ needs.docker.outputs.image-tag }}
+
     steps:
       - name: Login no GHCR
-        run: echo "${{ secrets.PAT_TOKEN }}" | docker login ghcr.io -u rpsouza441 --password-stdin
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy aplicação
         run: |
+          set -euo pipefail
           echo "=== Deploy Chrono Letter ==="
+          echo "Image tag: $IMAGE_TAG"
+          
           cd /srv/DATA/chrono-letter
+          
+          # Exporta a tag para o compose usar
+          export IMAGE_TAG="${IMAGE_TAG}"
+          
           docker compose -f compose.prod.yaml pull
           docker compose -f compose.prod.yaml up -d
           docker image prune -f
           echo "=== Deploy concluído ==="
+
+      - name: Logout do GHCR
+        if: always()
+        run: docker logout ghcr.io
 
   # ================================
   # Job 4: Sync para repo público
   # ================================
   sync-public:
     name: Sync to Public Repo
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PUBLIC_REPO_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
 
       - name: Sync to public repo
         run: |
           git config user.name "rpsouza441"
           git config user.email "rpsouza441@users.noreply.github.com"
-          git remote add public https://rpsouza441:${{ secrets.PAT_TOKEN }}@github.com/rpsouza441/chrono-letter-pub.git
-          git push public main:main --force
-
+          git remote add public git@github.com:rpsouza441/chrono-letter-pub.git
+          git push public main:main --force-with-lease

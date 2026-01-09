@@ -155,7 +155,7 @@ name: github-runner
 
 services:
   runner:
-    image: myoung34/github-runner:latest
+    image: myoung34/github-runner:2.321.0  # Pinar versão, não usar :latest
     container_name: github-runner-chrono
     restart: unless-stopped
     environment:

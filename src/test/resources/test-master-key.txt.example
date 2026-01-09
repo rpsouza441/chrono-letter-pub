@@ -1,8 +1,0 @@
-# ========================================
-# Master Key para Testes
-# ========================================
-# 1. Copie este arquivo para: test-master-key.txt
-# 2. O arquivo test-master-key.txt está no .gitignore
-#
-# Chave exemplo (32 bytes em base64 = AES-256):
-dGVzdC1tYXN0ZXIta2V5LWZvci11bml0LXRlc3Rpbmctb25seQ==

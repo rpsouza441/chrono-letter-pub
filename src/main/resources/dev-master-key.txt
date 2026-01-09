@@ -1,0 +1,3 @@
+# Master key para desenvolvimento/testes
+# Em producao, use uma chave real via Docker Secret
+chave_para_dev_nao_usar_em_producao

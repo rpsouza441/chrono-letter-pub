@@ -101,10 +101,6 @@ Desktop.ini
 secrets/
 !.env.example
 
-# Master keys (usar .example como template)
-*-master-key.txt
-!*-master-key.txt.example
-
 # ----------------------------------------
 # Docker
 # ----------------------------------------

@@ -96,11 +96,14 @@ jobs:
   # ================================
   deploy:
     name: Deploy to Server
-    runs-on: self-hosted    # Roda no seu servidor (runner local)
+    runs-on: self-hosted    
     needs: docker
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     steps:
+      - name: Login no GHCR
+        run: echo "${{ secrets.PAT_TOKEN }}" | docker login ghcr.io -u rpsouza441 --password-stdin
+
       - name: Deploy aplicação
         run: |
           echo "=== Deploy Chrono Letter ==="

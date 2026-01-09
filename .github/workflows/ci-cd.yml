@@ -171,4 +171,4 @@ jobs:
           git config user.name "rpsouza441"
           git config user.email "rpsouza441@users.noreply.github.com"
           git remote add public git@github.com:rpsouza441/chrono-letter-pub.git
-          git push public main:main --force-with-lease
+          git push public main:main --force

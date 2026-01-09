@@ -17,7 +17,7 @@ services:
     container_name: chrono-app
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "6180:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - DATABASE_URL=jdbc:postgresql://postgres:5432/chronoletter

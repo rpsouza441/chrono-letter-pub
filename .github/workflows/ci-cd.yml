@@ -137,4 +137,6 @@ jobs:
           destination-github-username: 'rpsouza441'
           destination-repository-name: 'chrono-letter-pub'
           target-branch: main
+          user-email: rpsouza441@users.noreply.github.com
+          user-name: rpsouza441
 

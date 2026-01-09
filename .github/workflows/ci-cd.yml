@@ -128,15 +128,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Push to public repo
-        uses: cpina/github-action-push-to-another-repository@main
-        env:
-          API_TOKEN_GITHUB: ${{ secrets.PAT_TOKEN }}
-        with:
-          source-directory: '.'
-          destination-github-username: 'rpsouza441'
-          destination-repository-name: 'chrono-letter-pub'
-          target-branch: main
-          user-email: rpsouza441@users.noreply.github.com
-          user-name: rpsouza441
+      - name: Sync to public repo
+        run: |
+          git config user.name "rpsouza441"
+          git config user.email "rpsouza441@users.noreply.github.com"
+          git remote add public https://rpsouza441:${{ secrets.PAT_TOKEN }}@github.com/rpsouza441/chrono-letter-pub.git
+          git push public main:main --force
 

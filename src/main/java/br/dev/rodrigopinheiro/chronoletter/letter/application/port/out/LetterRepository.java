@@ -18,7 +18,7 @@ public interface LetterRepository {
 
     List<Letter> findAllByOwnerId(UserId ownerId);
 
-    List<Letter> finbByOwnerIdAndStatus(UserId ownerId, LetterStatus status);
+    List<Letter> findByOwnerIdAndStatus(UserId ownerId, LetterStatus status);
 
     /**
      * Busca cartas pendentes prontas para materialização.

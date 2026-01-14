@@ -65,7 +65,7 @@ public class LetterTest {
     @Test
     public void shouldUpdateContentWhilePending() {
 
-        Letter letter = Letter.pending(OWNER_ID, CONTENT, createSchedule());
+        Letter letter = Letter.draft(OWNER_ID, CONTENT, createSchedule());
         letter.schedule();
         LetterContent newContent = LetterContent.of("Novo conteúdo da carta para o futuro.");
         letter.updateContent(newContent);
@@ -75,15 +75,15 @@ public class LetterTest {
     @Test
     public void shouldNotUpdateContentAfterSent() {
 
-        Letter letter = Letter.reconstitute(
+        var letter = Letter.reconstitute(
                 LetterId.generate(),
                 OWNER_ID,
                 CONTENT,
                 createSchedule(),
                 LetterStatus.SENT,
                 null, null, null, null);
-        LetterContent newContent = LetterContent.of("Novo conteúdo da carta para o futuro.");
-        letter.updateContent(newContent);
+        var newContent = LetterContent.of("Novo conteúdo da carta para o futuro.");
+
         assertThatThrownBy(() -> letter.updateContent(newContent))
                 .isInstanceOf(LetterAlreadySentException.class);
     }
@@ -91,7 +91,7 @@ public class LetterTest {
     @Test
     public void shouldMarkAsSending() {
 
-        Letter letter = Letter.pending(OWNER_ID, CONTENT, createSchedule());
+        Letter letter = Letter.draft(OWNER_ID, CONTENT, createSchedule());
         letter.schedule();
         letter.markAsSending();
         assertThat(letter.getStatus()).isEqualTo(LetterStatus.SENDING);
@@ -100,7 +100,7 @@ public class LetterTest {
     @Test
     public void shouldMarkAsSent() {
 
-        Letter letter = Letter.pending(OWNER_ID, CONTENT, createSchedule());
+        Letter letter = Letter.draft(OWNER_ID, CONTENT, createSchedule());
         letter.schedule();
         letter.markAsSending();
         letter.markAsSent();
@@ -110,7 +110,7 @@ public class LetterTest {
     @Test
     public void shouldMarkAsFailed() {
 
-        Letter letter = Letter.pending(OWNER_ID, CONTENT, createSchedule());
+        Letter letter = Letter.draft(OWNER_ID, CONTENT, createSchedule());
         letter.schedule();
         letter.markAsSending();
         letter.markAsFailed("SMTP connection timeout");
@@ -121,7 +121,7 @@ public class LetterTest {
     @Test
     public void shouldMaterilizeScheduleInfo() {
 
-        Letter letter = Letter.pending(OWNER_ID, CONTENT, createSchedule());
+        Letter letter = Letter.draft(OWNER_ID, CONTENT, createSchedule());
         letter.schedule();
 
         letter.materializeSendAt(10);

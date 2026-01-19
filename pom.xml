@@ -166,6 +166,12 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa-test</artifactId>
+			<scope>test</scope>
+		</dependency>
 		
 		<!-- Mockito with subclass mock maker for JDK 21+ compatibility -->
 		<dependency>
@@ -188,7 +194,15 @@
 			<scope>test</scope>
 		</dependency>
 		
-		<!-- Testcontainers: real PostgreSQL in tests -->
+		<!-- H2 Database for tests (PostgreSQL compatibility mode) -->
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<scope>test</scope>
+		</dependency>
+		
+		<!-- Testcontainers: real PostgreSQL in tests (optional, requires Docker) -->
+		<!--
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-testcontainers</artifactId>
@@ -206,6 +220,7 @@
 			<version>${testcontainers.version}</version>
 			<scope>test</scope>
 		</dependency>
+		-->
 		
 		<!-- GreenMail: SMTP server for email integration tests -->
 		<!-- Uncomment when email tests are implemented

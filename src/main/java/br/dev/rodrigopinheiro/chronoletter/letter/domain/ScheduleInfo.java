@@ -27,6 +27,16 @@ public record ScheduleInfo(
         return new ScheduleInfo(scheduledDate, timezone, null, null);
     }
 
+    public static ScheduleInfo reconstitute(
+            LocalDate scheduledDate,
+            Timezone timezone,
+            Instant sendAt,
+            Integer sendHourLocalUsed) {
+        Objects.requireNonNull(timezone, "Timezone cannot be null");
+        // Cria diretamente sem validar data (é reconstituição)
+        return new ScheduleInfo(scheduledDate, timezone, sendAt, sendHourLocalUsed);
+    }
+
     public ScheduleInfo materialize(int sendHourLocal) {
         if (this.sendAt != null) {
             throw new IllegalStateException("ScheduleInfo already materialized");

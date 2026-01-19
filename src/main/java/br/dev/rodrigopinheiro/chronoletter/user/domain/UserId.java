@@ -28,6 +28,10 @@ public record UserId(
         }
     }
 
+    public static UserId of(UUID uuid) {
+        return new UserId(uuid);
+    }
+
     @Override
     public String toString() {
         return value.toString();
